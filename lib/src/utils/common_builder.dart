@@ -1,0 +1,131 @@
+import 'dart:developer';
+
+import 'package:code_builder/code_builder.dart';
+import 'package:gql_typed/src/utils/libs_urls.dart';
+import 'package:gql_typed/src/utils/reserved.dart';
+import 'package:gql_typed/src/utils/utils.dart';
+
+Class buildDataclass({
+  String name,
+  List<FieldTypeAndNamePair> fieldTypePairs,
+}) =>
+    dataclassBuilder(name: name, fieldTypePairs: fieldTypePairs).build();
+
+ClassBuilder dataclassBuilder({
+  String name,
+  List<FieldTypeAndNamePair> fieldTypePairs,
+}) {
+  List<Expression> jsonConverters = [];
+
+  final fields = fieldTypePairs
+      .map((f) {
+        final firstConfig = f.type.scalerConfig.firstOrNull;
+        final stringType = f.type.type;
+        jsonConverters.addAll(
+            f.type.scalerConfig.where((e) => e.converterImport != null).map(
+                  (e) =>
+                      refer("\$${e.dartName}JsonConverter", e.converterImport),
+                ));
+
+        return Field(
+          (b) => b
+            ..modifier = FieldModifier.final$
+            ..name = escapeReserved(f.name)
+            ..type = refer(stringType, firstConfig?.typeImport)
+            ..annotations = <Expression>[
+              refer('JsonKey', LibsUrls.jsonAnnotaion).call([], {
+                if (isReserved(f.name)) "name": literalString(f.name),
+                if (firstConfig?.parserImport != null) ...{
+                  "fromJson": refer("\$${firstConfig.dartName}FromJson",
+                      firstConfig.parserImport),
+                  "toJson": refer("\$${firstConfig.dartName}ToJson",
+                      firstConfig.parserImport),
+                }
+              }),
+            ].toListBuilder(),
+        );
+      })
+      .toList()
+      .toListBuilder();
+
+  final parameters = fieldTypePairs
+      .map((f) => Parameter(
+            (b) => b
+              ..name = escapeReserved(f.name)
+              //..type = refer(f.type)
+              ..toThis = true
+              ..named = true
+              ..annotations = <Expression>[
+                if (f.required) refer("required", LibsUrls.meta)
+              ].toListBuilder(),
+          ))
+      .toList()
+      .toListBuilder();
+
+  /*
+        @override
+  List<Object> get props => throw UnimplementedError();
+  */
+
+  final propsMethod = Method(
+    (b) => b
+      ..annotations = [refer("override")].toListBuilder()
+      ..name = "props"
+      ..type = MethodType.getter
+      ..lambda = true
+      ..returns = refer("List<Object>")
+      ..body = Code("[" +
+          fieldTypePairs.map((e) => escapeReserved(e.name)).join(",") +
+          "]"),
+  );
+
+//@override
+//  bool get stringify => true;
+  final stringify = Method((b) => b
+    ..annotations = [refer("override")].toListBuilder()
+    ..name = "stringify"
+    ..type = MethodType.getter
+    ..lambda = true
+    ..returns = refer("bool")
+    ..body = Code("true"));
+
+  return ClassBuilder()
+    ..name = name
+    ..annotations = [
+      refer("JsonSerializable", LibsUrls.jsonAnnotaion).call(
+          [], {"includeIfNull": literalFalse, "explicitToJson": literalTrue}),
+      ...jsonConverters,
+    ].toListBuilder()
+    ..extend = refer("Equatable", LibsUrls.equatable)
+    ..fields = fields
+    ..constructors = [
+      Constructor(
+        (b) => b
+          ..constant = true
+          ..optionalParameters = parameters,
+      ),
+      Constructor(
+        (b) => b
+          ..factory = true
+          ..lambda = true
+          ..name = "fromJson"
+          ..body = Code("_\$${name}FromJson(json)")
+          ..requiredParameters = [
+            Parameter((b) => b
+              ..name = "json"
+              ..type = refer("Map<String, dynamic>"))
+          ].toListBuilder(),
+      )
+    ].toListBuilder()
+    ..methods = [
+      Method(
+        (b) => b
+          ..name = "toJson"
+          ..lambda = true
+          ..returns = refer("Map<String, dynamic>")
+          ..body = Code("_\$${name}ToJson(this)"),
+      ),
+      propsMethod,
+      stringify,
+    ].toListBuilder();
+}

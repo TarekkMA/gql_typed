@@ -1,0 +1,38 @@
+targets:
+  $default:
+    sources:
+      - lib/**
+builders:
+  types_builder:
+    import: "package:gql_typed/src/types_builder/types_builder.dart"
+    builder_factories: ["typesBuilder"]
+    build_extensions: { ".graphql": [".schema.gql.dart"] }
+    auto_apply: none
+    build_to: source
+    runs_before: ["json_serializable|json_serializable"]
+  var_builder:
+    import: "package:gql_typed/src/var_builder/var_builder.dart"
+    builder_factories: ["varsBuilder"]
+    build_extensions: { ".graphql": [".vart.gql.dart"] }
+    auto_apply: none
+    build_to: source
+    runs_before: ["json_serializable|json_serializable"]
+  req_builder:
+    import: "package:gql_typed/src/req_builder/req_builder.dart"
+    builder_factories: ["reqBuilder"]
+    build_extensions: { ".graphql": [".reqt.gql.dart"] }
+    auto_apply: none
+    build_to: source
+  data_builder:
+    import: "package:gql_typed/src/data_builder/data_builder.dart"
+    builder_factories: ["dataBuilder"]
+    build_extensions: { ".graphql": [".datat.gql.dart"] }
+    auto_apply: none
+    build_to: source
+  gql_typed_generator:
+    import: "package:gql_typed/src/ferry_types_generator/ferry_types_generator.dart"
+    builder_factories: ["ferryTypesGeneratorBuilder"]
+    build_extensions: { ".graphql": [".all.gql.dart"] }
+    auto_apply: none
+    build_to: source
+    runs_before: ["json_serializable|json_serializable"]
