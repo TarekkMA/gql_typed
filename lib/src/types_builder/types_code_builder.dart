@@ -262,88 +262,98 @@ Spec genUnionType({
   String union,
   List<String> members,
 }) {
-  // final fields = [
-  //   Field((b) => b
-  //     ..name = "value"
-  //     ..modifier = FieldModifier.final$
-  //     ..type = refer("dynamic"))
-  // ].toListBuilder();
+  final typeCheckingMethods = members.map((member) => Method(
+        (b) => b
+          ..name = "is${member}"
+          ..returns = refer("bool")
+          ..type = MethodType.getter
+          ..lambda = true
+          ..body = Code("value is ${member}"),
+      ));
 
-  // final constructors = [
-  //   Constructor((b) => b
-  //     ..requiredParameters = [
-  //       Parameter(
-  //         (b) => b
-  //           ..name = "value"
-  //           ..toThis = true,
-  //       )
-  //     ].toListBuilder())
-  // ].toListBuilder();
+  final typeCastMethods = members.map((member) => Method(
+        (b) => b
+          ..name = "as${member}"
+          ..returns = refer(member)
+          ..type = MethodType.getter
+          ..lambda = true
+          ..body = Code("value as ${member}"),
+      ));
 
-  // final typeCheckingMethods = members.map((member) => Method(
-  //       (b) => b
-  //         ..name = "is${member}"
-  //         ..returns = refer("bool")
-  //         ..type = MethodType.getter
-  //         ..lambda = true
-  //         ..body = Code("value is ${member}"),
-  //     ));
+  final typeOrMethods = members.map((member) => Method(
+        (b) => b
+          ..name = "${camelize(member, true)}Or"
+          ..returns = refer(member)
+          ..requiredParameters = [
+            Parameter((b) => b
+              ..type = refer(member)
+              ..name = "or")
+          ].toListBuilder()
+          ..lambda = true
+          ..body = Code("is${member} ? as${member} : or"),
+      ));
 
-  // final typeCastMethods = members.map((member) => Method(
-  //       (b) => b
-  //         ..name = "as${member}"
-  //         ..returns = refer(member)
-  //         ..type = MethodType.getter
-  //         ..lambda = true
-  //         ..body = Code("value as ${member}"),
-  //     ));
-
-  // final typeOrMethods = members.map((member) => Method(
-  //       (b) => b
-  //         ..name = "as${member}"
-  //         ..returns = refer(member)
-  //         ..requiredParameters = [
-  //           Parameter((b) => b
-  //             ..type = refer(member)
-  //             ..name = "or")
-  //         ].toListBuilder()
-  //         ..lambda = true
-  //         ..body = Code("is${member} ? as${member} : or"),
-  //     ));
-
-  // return (ClassBuilder()
-  //       ..name = union
-  //       ..fields = fields
-  //       ..constructors = constructors)
-  //     .build();
-
-  return Code("""
-class ${union} {
-  final dynamic value;
-
-  ${union}(this.value);
-
-  ${members.map((e) => "bool get is${e} => value is ${e};").join("\n")}
-
-  ${members.map((e) => "${e} get as${e} => value as ${e};").join("\n")}
-
-  ${members.map((e) => "${e} ${e}Or(${e} or) => is${e} ? as${e} : or;").join("\n")}
-
-  factory ${union}.fromJson(Map<String, dynamic> json) {
-    ${members.map((e) => 'if (json["__typename"] == "${e}") return ${union}(${e}.fromJson(json));').join("\n")}
-    throw "Error";
-  }
-
-  Map<String, dynamic> toJson() => when(
+  return Class(
+    (b) => b
+      ..name = union
+      ..fields.add(Field((b) => b
+        ..name = "value"
+        ..modifier = FieldModifier.final$
+        ..type = refer("dynamic")))
+      ..constructors.addAll([
+        Constructor((b) => b
+          ..requiredParameters.add(Parameter(
+            (b) => b
+              ..name = "value"
+              ..toThis = true,
+          ))),
+        Constructor(
+          (b) => b
+            ..name = "fromJson"
+            ..factory = true
+            ..requiredParameters.add(Parameter(
+              (b) => b
+                ..name = "json"
+                ..type = refer("Map<String, dynamic>"),
+            ))
+            ..body = Block.of([
+              ...members.map((e) => Code(
+                  'if (json["__typename"] == "${e}") return ${union}(${e}.fromJson(json));')),
+              Code("throw 'Error';"),
+            ]),
+        ),
+      ])
+      ..methods.addAll([
+        ...typeCheckingMethods,
+        ...typeCastMethods,
+        ...typeOrMethods,
+        Method(
+          (b) => b
+            ..name = "toJson"
+            ..returns = refer("Map<String, dynamic>")
+            ..lambda = true
+            ..body = Code("""when(
         ${members.map((e) => '${camelize(e, true)}: (${camelize(e, true)}) => ${camelize(e, true)}.toJson(),').join("\n")}
-      );
-
-  T when<T>({
-    ${members.map((e) => '@required T Function(${e} ${camelize(e, true)}) ${camelize(e, true)},').join("\n")}
-  }) {
-    ${members.map((e) => 'if (is${e}) return ${camelize(e, true)}(as${e});').join("\n")}
-    throw "\${value.runtimeType} not mapped in when";
-  }
-}
-""");
+      )"""),
+        ),
+        Method(
+          (b) => b
+            ..name = "when"
+            ..types.add(refer("T"))
+            ..returns = refer("T")
+            ..optionalParameters.addAll(members.map((e) => Parameter(
+                  (b) => b
+                    ..annotations.add(refer("required", LibsUrls.meta))
+                    ..named = true
+                    ..name = camelize(e, true)
+                    ..type = refer("T Function(${e} ${camelize(e, true)})"),
+                )))
+            ..body = Block.of([
+              ...members.map((e) =>
+                  Code('if (is${e}) return ${camelize(e, true)}(as${e});')),
+              Code("throw \"\${value.runtimeType} not mapped in when\";")
+            ]),
+        )
+      ]),
+  );
 }

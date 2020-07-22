@@ -18,7 +18,7 @@ Future<void> writeDocument(
 
   final generatedAsset = buildStep.inputId.changeExtension(extension);
 
-  final genSrc = _dartfmt.format("${library.accept(
+  final codeString = library.accept(
     DartEmitter(
       _GqlAllocator(
         buildStep.inputId.uri.toString(),
@@ -27,12 +27,19 @@ Future<void> writeDocument(
         doNotPrefix: doNotPrefix,
       ),
     ),
-  )}");
-
-  return buildStep.writeAsString(
-    generatedAsset,
-    "// GENERATED CODE - DO NOT MODIFY BY HAND\n\n" + genSrc,
   );
+
+  try {
+    final genSrc = _dartfmt.format("$codeString");
+
+    return buildStep.writeAsString(
+      generatedAsset,
+      "// GENERATED CODE - DO NOT MODIFY BY HAND\n\n" + genSrc,
+    );
+  } catch (e, stk) {
+    print(e);
+    print(stk);
+  }
 }
 
 class _GqlAllocator implements Allocator {
