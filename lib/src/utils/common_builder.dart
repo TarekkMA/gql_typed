@@ -89,6 +89,23 @@ ClassBuilder dataclassBuilder({
     ..returns = refer("bool")
     ..body = Code("true"));
 
+  final copyWithMehtod = Method(
+    (b) => b
+      ..name = "copyWith"
+      ..returns = refer(name)
+      ..optionalParameters.addAll(fieldTypePairs.map((e) => Parameter((b) => b
+        ..named = true
+        ..name = escapeReserved(e.name)
+        ..type = refer(e.type.type))))
+      ..lambda = true
+      ..body = refer(name).call(
+          [],
+          Map.fromEntries(fieldTypePairs.map((e) => MapEntry(
+              escapeReserved(e.name),
+              refer(escapeReserved(e.name))
+                  .ifNullThen(refer("this.${escapeReserved(e.name)}")))))).code,
+  );
+
   return ClassBuilder()
     ..name = name
     ..annotations = [
@@ -125,6 +142,7 @@ ClassBuilder dataclassBuilder({
           ..returns = refer("Map<String, dynamic>")
           ..body = Code("_\$${name}ToJson(this)"),
       ),
+      copyWithMehtod,
       propsMethod,
       stringify,
     ].toListBuilder();
