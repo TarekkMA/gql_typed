@@ -319,7 +319,7 @@ Spec genUnionType({
             ..body = Block.of([
               ...members.map((e) => Code(
                   'if (json["__typename"] == "${e}") return ${union}(${e}.fromJson(json));')),
-              Code("throw 'Error';"),
+              Code("return null;"),
             ]),
         ),
       ])
