@@ -8,12 +8,18 @@ import 'package:gql_typed/src/utils/utils.dart';
 Class buildDataclass({
   String name,
   List<FieldTypeAndNamePair> fieldTypePairs,
+  List<Reference> interfaces,
 }) =>
-    dataclassBuilder(name: name, fieldTypePairs: fieldTypePairs).build();
+    dataclassBuilder(
+      name: name,
+      fieldTypePairs: fieldTypePairs,
+      interfaces: interfaces,
+    ).build();
 
 ClassBuilder dataclassBuilder({
   String name,
   List<FieldTypeAndNamePair> fieldTypePairs,
+  List<Reference> interfaces,
 }) {
   List<Expression> jsonConverters = [];
 
@@ -115,6 +121,7 @@ ClassBuilder dataclassBuilder({
     ].toListBuilder()
     ..extend = refer("Equatable", LibsUrls.equatable)
     ..fields = fields
+    ..implements = interfaces?.toListBuilder()
     ..constructors = [
       Constructor(
         (b) => b
@@ -146,4 +153,49 @@ ClassBuilder dataclassBuilder({
       propsMethod,
       stringify,
     ].toListBuilder();
+}
+
+Class buildInterface({
+  String name,
+  List<FieldTypeAndNamePair> fieldTypePairs,
+}) {
+  final fields = fieldTypePairs
+      .map((f) {
+        final firstConfig = f.type.scalerConfig.firstOrNull;
+        final stringType = f.type.type;
+
+        return Field((b) => b
+          ..modifier = FieldModifier.final$
+          ..name = escapeReserved(f.name)
+          ..type = refer(stringType, firstConfig?.typeImport));
+      })
+      .toList()
+      .toListBuilder();
+
+  final parameters = fieldTypePairs
+      .map((f) => Parameter(
+            (b) => b
+              ..name = escapeReserved(f.name)
+              //..type = refer(f.type)
+              ..toThis = true
+              ..named = true
+              ..annotations = <Expression>[
+                if (f.required) refer("required", LibsUrls.meta)
+              ].toListBuilder(),
+          ))
+      .toList()
+      .toListBuilder();
+
+  return (ClassBuilder()
+        ..name = name
+        ..fields = fields
+        ..abstract = true
+        ..constructors = [
+          Constructor(
+            (b) => b
+              ..constant = true
+              ..optionalParameters = parameters,
+          ),
+        ].toListBuilder())
+      .build();
 }

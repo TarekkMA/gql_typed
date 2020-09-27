@@ -159,6 +159,7 @@ class MyVis extends SimpleVisitor<List<Spec>> {
     return argClasses
         .followedBy(buildDataclass(
           name: node.name.value,
+          interfaces: node.interfaces.map((e) => refer(e.name.value)).toList(),
           fieldTypePairs: node.fields
               .map((e) => FieldTypeAndNamePair(
                     getFieldType(e.type),
@@ -185,11 +186,15 @@ class MyVis extends SimpleVisitor<List<Spec>> {
   @override
   List<Spec> visitInterfaceTypeDefinitionNode(
       InterfaceTypeDefinitionNode node) {
-    return [];
-    return Class(
-      (b) => b
-        ..abstract = true
-        ..name = node.name.value,
+    return buildInterface(
+      name: node.name.value,
+      fieldTypePairs: node.fields
+          .map((e) => FieldTypeAndNamePair(
+                getFieldType(e.type),
+                e.name.value,
+                e.type.isNonNull,
+              ))
+          .toList(),
     ).toList();
   }
 
