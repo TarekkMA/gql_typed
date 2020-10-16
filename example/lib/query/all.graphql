@@ -1,0 +1,8 @@
+query AllPokemon($first: Int!) {
+  queryPokemon(first: $first) {
+    id
+    maxHP
+    image
+    name
+  }
+}
